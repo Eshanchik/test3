@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Самолетик против камешков</title>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            background-color: #87CEEB;
+            font-family: Arial, sans-serif;
+        }
+        #game-container {
+            position: relative;
+            width: 100vw;
+            height: 100vh;
+            overflow: hidden;
+        }
+        #airplane {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 60px;
+            height: 50px;
+            transition: left 0.1s;
+        }
+        .rock {
+            position: absolute;
+            width: 30px;
+            height: 30px;
+            background-color: #8B4513;
+            border-radius: 50%;
+        }
+        .bullet {
+            position: absolute;
+            width: 5px;
+            height: 15px;
+            background-color: red;
+            border-radius: 2px;
+        }
+        #score-container {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            color: white;
+            font-size: 24px;
+            background-color: rgba(0, 0, 0, 0.5);
+            padding: 5px 10px;
+            border-radius: 5px;
+        }
+        #game-over {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background-color: rgba(0, 0, 0, 0.8);
+            color: white;
+            padding: 20px;
+            border-radius: 10px;
+            text-align: center;
+            display: none;
+        }
+        #restart-btn {
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            text-align: center;
+            text-decoration: none;
+            display: inline-block;
+            font-size: 16px;
+            margin: 10px 2px;
+            cursor: pointer;
+            border-radius: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div id="game-container">
+        <div id="airplane">
+            <svg viewBox="0 0 60 50" xmlns="http://www.w3.org/2000/svg">
+                <path d="M30 0 L60 40 L40 40 L40 50 L20 50 L20 40 L0 40 Z" fill="#3366CC" />
+            </svg>
+        </div>
+        <div id="score-container">Счет: <span id="score">0</span></div>
+        <div id="game-over">
+            <h2>Игра окончена!</h2>
+            <p>Ваш счет: <span id="final-score">0</span></p>
+            <button id="restart-btn">Играть снова</button>
+        </div>
+    </div>
+
+    <script>
+        // Основные элементы игры
+        const gameContainer = document.getElementById('game-container');
+        const airplane = document.getElementById('airplane');
+        const scoreElement = document.getElementById('score');
+        const finalScoreElement = document.getElementById('final-score');
+        const gameOverElement = document.getElementById('game-over');
+        const restartBtn = document.getElementById('restart-btn');
+
+        // Параметры игры
+        let score = 0;
+        let isGameOver = false;
+        let airplanePosition = window.innerWidth / 2;
+        let rocks = [];
+        let bullets = [];
+        let rockSpeed = 2;
+        let rockSpawnRate = 1500;
+        const airplaneWidth = 60;
+        const airplaneHeight = 50;
+        
+        // Обработка движения самолетика
+        document.addEventListener('mousemove', (e) => {
+            if (!isGameOver) {
+                airplanePosition = e.clientX;
+                airplane.style.left = `${airplanePosition}px`;
+            }
+        });
+
+        // Обработка стрельбы
+        document.addEventListener('click', () => {
+            if (!isGameOver) {
+                createBullet();
+            }
+        });
+
+        // Кнопки для мобильных устройств
+        document.addEventListener('touchmove', (e) => {
+            if (!isGameOver) {
+                e.preventDefault();
+                const touch = e.touches[0];
+                airplanePosition = touch.clientX;
+                airplane.style.left = `${airplanePosition}px`;
+            }
+        }, { passive: false });
+
+        document.addEventListener('touchstart', (e) => {
+            if (!isGameOver && e.target === gameContainer) {
+                e.preventDefault();
+                createBullet();
+            }
+        }, { passive: false });
+
+        // Создание камешка
+        function createRock() {
+            if (isGameOver) return;
+            
+            const rock = document.createElement('div');
+            rock.className = 'rock';
+            
+            const rockSize = Math.random() * 20 + 20;
+            rock.style.width = `${rockSize}px`;
+            rock.style.height = `${rockSize}px`;
+            
+            const rockPosition = Math.random() * (window.innerWidth - rockSize);
+            rock.style.left = `${rockPosition}px`;
+            rock.style.top = '0px';
+            
+            gameContainer.appendChild(rock);
+            
+            rocks.push({
+                element: rock,
+                position: {
+                    x: rockPosition,
+                    y: 0
+                },
+                size: rockSize
+            });
+        }
+
+        // Создание пули
+        function createBullet() {
+            const bullet = document.createElement('div');
+            bullet.className = 'bullet';
+            
+            const bulletPosition = airplanePosition;
+            bullet.style.left = `${bulletPosition}px`;
+            bullet.style.bottom = '70px'; // Верх самолетика
+            
+            gameContainer.appendChild(bullet);
+            
+            bullets.push({
+                element: bullet,
+                position: {
+                    x: bulletPosition,
+                    y: window.innerHeight - 70
+                }
+            });
+        }
+
+        // Обновление игры
+        function updateGame() {
+            if (isGameOver) return;
+            
+            // Обновление позиций камешков
+            for (let i = rocks.length - 1; i >= 0; i--) {
+                const rock = rocks[i];
+                rock.position.y += rockSpeed;
+                rock.element.style.top = `${rock.position.y}px`;
+                
+                // Проверка столкновения с самолетиком
+                if (rock.position.y + rock.size > window.innerHeight - airplaneHeight &&
+                    rock.position.x + rock.size > airplanePosition - airplaneWidth / 2 &&
+                    rock.position.x < airplanePosition + airplaneWidth / 2) {
+                    gameOver();
+                    return;
+                }
+                
+                // Удаление камешков, вышедших за границы экрана
+                if (rock.position.y > window.innerHeight) {
+                    gameContainer.removeChild(rock.element);
+                    rocks.splice(i, 1);
+                }
+            }
+            
+            // Обновление позиций пуль
+            for (let i = bullets.length - 1; i >= 0; i--) {
+                const bullet = bullets[i];
+                bullet.position.y -= 5; // Скорость пули
+                bullet.element.style.bottom = `${window.innerHeight - bullet.position.y}px`;
+                
+                // Проверка столкновения с камешками
+                for (let j = rocks.length - 1; j >= 0; j--) {
+                    const rock = rocks[j];
+                    if (bullet.position.y < rock.position.y + rock.size &&
+                        bullet.position.x + 5 > rock.position.x &&
+                        bullet.position.x < rock.position.x + rock.size) {
+                        
+                        // Уничтожение камешка и пули
+                        gameContainer.removeChild(rock.element);
+                        gameContainer.removeChild(bullet.element);
+                        rocks.splice(j, 1);
+                        bullets.splice(i, 1);
+                        
+                        // Увеличение счета
+                        score += 10;
+                        scoreElement.textContent = score;
+                        
+                        // Увеличение сложности каждые 100 очков
+                        if (score % 100 === 0) {
+                            rockSpeed += 0.5;
+                            rockSpawnRate = Math.max(400, rockSpawnRate - 100);
+                        }
+                        
+                        break;
+                    }
+                }
+                
+                // Удаление пуль, вышедших за границы экрана
+                if (bullet.position.y < 0) {
+                    gameContainer.removeChild(bullet.element);
+                    bullets.splice(i, 1);
+                }
+            }
+            
+            requestAnimationFrame(updateGame);
+        }
+
+        // Окончание игры
+        function gameOver() {
+            isGameOver = true;
+            finalScoreElement.textContent = score;
+            gameOverElement.style.display = 'block';
+        }
+
+        // Перезапуск игры
+        function restartGame() {
+            // Очистка камешков и пуль
+            rocks.forEach(rock => gameContainer.removeChild(rock.element));
+            bullets.forEach(bullet => gameContainer.removeChild(bullet.element));
+            
+            rocks = [];
+            bullets = [];
+            score = 0;
+            isGameOver = false;
+            rockSpeed = 2;
+            rockSpawnRate = 1500;
+            
+            scoreElement.textContent = '0';
+            gameOverElement.style.display = 'none';
+            
+            // Перезапуск игрового цикла
+            updateGame();
+            startRockSpawner();
+        }
+
+        // Запуск спавнера камешков
+        function startRockSpawner() {
+            if (isGameOver) return;
+            
+            createRock();
+            
+            setTimeout(() => {
+                startRockSpawner();
+            }, rockSpawnRate);
+        }
+
+        // Обработчик кнопки перезапуска
+        restartBtn.addEventListener('click', restartGame);
+
+        // Запуск игры
+        updateGame();
+        startRockSpawner();
+    </script>
+</body>
+</html>
